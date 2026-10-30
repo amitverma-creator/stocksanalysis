@@ -47,6 +47,7 @@ footer{margin-top:28px;color:var(--mut);font-size:12px}
 <div class="setup" id="setup"><b>Data source</b> — paste your Google Sheet's "Publish to web" link. Any published link works. Saved only in this browser.
 <div class="g"><input id="px" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" aria-label="Published CSV link"><button id="save" style="width:auto">Save &amp; load</button></div></div>
 <div class="err" id="err"></div>
+<div class="setup" id="fix" style="display:none"><b>Your sheet has no prices yet.</b> Click the button, open your Google Sheet, click cell A1 on the Watchlist tab (clear the sheet first with Ctrl+A, Delete) and press Ctrl+V. Wait a minute, then this page fills in by itself.<div style="margin-top:8px"><button id="copy" style="width:auto">Copy sheet formulas</button> <span id="cm"></span></div></div>
 <div class="ctl">
 <div><label for="cap">Capital (₹)</label><input id="cap" type="number" value="175000" step="5000"></div>
 <div><label for="np">Number of stocks</label><input id="np" type="number" value="3" min="1" max="6"></div>
@@ -116,7 +117,8 @@ async function load(){
     if(!r.ok)throw new Error("HTTP "+r.status);
     const tx=await r.text();if(tx.trim().startsWith("<"))throw new Error("link returned a web page, not data");
     rows=build(tx);
-    if(!rows.length)throw new Error("no usable rows; check the sheet has prices");
+    if(!rows.length){$("fix").style.display="block";throw new Error("no prices found in the sheet")}
+    $("fix").style.display="none";
     $("err").style.display="none";$("setup").style.display="none";
     const o=open_();$("dot").className="dot"+(o?" on":"");
     $("stat").textContent=(o?"Market open":"Market closed")+" · loaded "+new Date().toLocaleTimeString("en-IN");
@@ -124,6 +126,9 @@ async function load(){
   }catch(e){$("setup").style.display="block";$("err").style.display="block";
     $("err").textContent="Couldn't load the sheet ("+e.message+"). Check that the sheet is published to the web and that it shows prices in columns A to J.";}
 }
+const SY="RELIANCE TCS HDFCBANK ICICIBANK INFY BHARTIARTL SBIN ITC LT HINDUNILVR KOTAKBANK AXISBANK BAJFINANCE MARUTI SUNPHARMA TITAN NTPC ONGC POWERGRID ULTRACEMCO ASIANPAINT TATAMOTORS TATASTEEL JSWSTEEL ADANIPORTS ADANIENT COALINDIA WIPRO HCLTECH TECHM NESTLEIND BAJAJFINSV CIPLA DRREDDY EICHERMOT HEROMOTOCO GRASIM HINDALCO INDUSINDBK APOLLOHOSP BPCL TRENT SBILIFE HDFCLIFE DIVISLAB BRITANNIA BEL HAL IRCTC PNB BANKBARODA VEDL".split(" "),AT=["name","price","changepct","high","low","volume","high52","low52","closeyest"];
+function tsv(){return["Symbol\tName\tPrice\tChangePct\tHigh\tLow\tVolume\tHigh52\tLow52\tPrevClose"].concat(SY.map((s,i)=>s+"\t"+AT.map(a=>'=IFERROR(GOOGLEFINANCE("NSE:"&$A'+(i+2)+',"'+a+'"),"")').join("\t"))).join("\n")}
+$("copy").onclick=async()=>{const t=tsv();try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}$("cm").textContent="Copied. Now paste into A1 of your sheet."};
 $("save").onclick=()=>{set("amit_csv",$("px").value.trim());load()};
 ["cap","np","tg","sl"].forEach(i=>$(i).oninput=()=>rows.length&&render());
 $("min").onchange=load;
