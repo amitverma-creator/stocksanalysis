@@ -14,9 +14,9 @@ h1{margin:0;font-size:28px;font-weight:800;letter-spacing:-.02em}h1 span{color:v
 .warn{background:#2a2412;border:1px solid #5b4a1a;border-radius:10px;padding:10px 14px;color:#f3d98b;font-size:13px;margin-bottom:16px}
 .ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:16px}
 label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
-input,select,button{width:100%;background:#0d1524;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 10px;font:inherit}
+input,button{width:100%;background:#0d1524;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 10px;font:inherit}
 button{background:var(--gold);color:#1a1405;font-weight:700;cursor:pointer;border:0}
-input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+input:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .setup{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:14px 16px;margin-bottom:16px;font-size:13px}
 .setup .g{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:8px}
 .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
@@ -34,63 +34,65 @@ h2{font-size:17px;margin:22px 0 10px}
 .why{font-size:12px;color:var(--mut);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
 .hot{color:var(--dn);font-weight:700}
 .tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px}
-table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:680px}
 th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 th{color:var(--mut);font-weight:600;cursor:pointer;white-space:nowrap}
 tr:last-child td{border-bottom:0}
 .err{background:#3a1a1f;border:1px solid #7a2c36;color:#ffb3b3;padding:12px 14px;border-radius:10px;margin-bottom:16px;display:none;font-size:13px}
 footer{margin-top:28px;color:var(--mut);font-size:12px}
-@media(prefers-reduced-motion:no-preference){.dot.on{animation:p 2s infinite}@keyframes p{50%{box-shadow:0 0 0 7px #35d0a000}}}
 </style></head><body><div class="wrap">
 <header><h1>Amit<span>Stocks</span></h1><div class="status"><i class="dot" id="dot"></i><span id="stat">Not connected</span></div></header>
-<div class="warn"><b>Read this first:</b> No tool can predict prices with 100% accuracy. This is a rule-based momentum screen on NSE data, not a guarantee or financial advice. Targeting ₹5–20K on ₹1.5–2L in 4–5 days (2.5–13%) needs high risk, and stop-losses can hit. Only use money you can afford to lose, and consult a SEBI-registered advisor.</div>
-<div class="setup" id="setup"><b>Data connection</b> — paste your Cloudflare Worker URL (see setup steps). It is saved only in this browser, never in the repo.
-<div class="g"><input id="px" type="url" placeholder="https://amitstocks.yourname.workers.dev" aria-label="Worker URL"><button id="save" style="width:auto">Save &amp; connect</button></div></div>
+<div class="warn"><b>Read this first:</b> No tool can predict prices with 100% accuracy. This is a rule-based momentum screen, not a guarantee or financial advice. Google's NSE prices can be delayed by up to about 20 minutes, so don't treat them as live ticks. Targeting ₹5–20K on ₹1.5–2L in 4–5 days (2.5–13%) needs high risk, and stop-losses can hit. Consult a SEBI-registered advisor.</div>
+<div class="setup" id="setup"><b>Data source</b> — paste your Google Sheet's published CSV link (File → Share → Publish to web → CSV). Saved only in this browser.
+<div class="g"><input id="px" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" aria-label="Published CSV link"><button id="save" style="width:auto">Save &amp; load</button></div></div>
 <div class="err" id="err"></div>
 <div class="ctl">
 <div><label for="cap">Capital (₹)</label><input id="cap" type="number" value="175000" step="5000"></div>
 <div><label for="np">Number of stocks</label><input id="np" type="number" value="3" min="1" max="6"></div>
 <div><label for="tg">Target %</label><input id="tg" type="number" value="4" step="0.5"></div>
 <div><label for="sl">Stop-loss %</label><input id="sl" type="number" value="2.5" step="0.5"></div>
-<div><label for="idx">Stock universe</label><select id="idx"><option>NIFTY 50</option><option>NIFTY 100</option><option selected>NIFTY 200</option><option>NIFTY 500</option><option>NIFTY MIDCAP 100</option></select></div>
 <div><label for="min">Min traded today (₹ Cr)</label><input id="min" type="number" value="25"></div>
 </div>
 <div class="sum" id="sum"></div>
-<h2>Top momentum setups right now</h2><div class="cards" id="cards"></div>
+<h2>Top momentum setups</h2><div class="cards" id="cards"></div>
 <h2>Full screen</h2><div class="tw"><table><thead><tr id="thead"></tr></thead><tbody id="tb"></tbody></table></div>
-<footer>Refreshes every 30s while the market is open. NSE data may be delayed. Score = day momentum + close near day high + nearness to 52-week high + 30-day trend, minus penalties for moves above 6% today. Moves above 10% are flagged as high risk.</footer>
+<footer>Reloads every 60 seconds. Google refreshes a published sheet every few minutes, so data lags. Score = day momentum + close near day high + nearness to 52-week high, minus penalties for moves above 6% today. Moves above 10% are flagged high risk.</footer>
 </div>
 <script>
+const SHEET_URL=""; // optional: hard-code your published CSV link here
 const $=id=>document.getElementById(id),inr=n=>"₹"+Math.round(n).toLocaleString("en-IN"),f2=n=>(+n||0).toFixed(2);
-let rows=[],sortKey="score",sortDir=-1,meta={},timer;
+let rows=[],sortKey="score",sortDir=-1;
 const get=k=>{try{return localStorage.getItem(k)||""}catch(e){return ""}},set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-$("px").value=get("amit_px");
-
+$("px").value=get("amit_csv");
+const num=v=>{const n=parseFloat(String(v).replace(/[,%₹\s]/g,""));return isNaN(n)?0:n};
+function csv(t){const o=[];let r=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];
+  if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}
+  else if(ch=='"')q=true;else if(ch==","){r.push(c);c=""}
+  else if(ch=="\n"||ch=="\r"){if(ch=="\r"&&t[i+1]=="\n")i++;r.push(c);o.push(r);r=[];c=""}else c+=ch}
+  if(c||r.length){r.push(c);o.push(r)}return o}
 function score(r){
-  let s=0,why=[];const rng=r.dayHigh-r.dayLow,pos=rng>0?(r.lastPrice-r.dayLow)/rng:.5,p=r.pChange,nh=Math.abs(r.nearWKH);
-  if(p>0){s+=Math.min(p,4)*7;why.push("up "+f2(p)+"% today")}
+  let s=0,why=[];const rng=r.high-r.low,pos=rng>0?(r.price-r.low)/rng:.5,p=r.chg,nh=r.nh;
+  if(p>0){s+=Math.min(p,4)*9;why.push("up "+f2(p)+"% today")}
   if(p>6)s-=(p-6)*6;
-  if(pos>=.7){s+=18*pos;why.push("near day high")}
-  if(nh<=10){s+=(10-nh)*1.6;why.push(f2(nh)+"% below 52w high")}
-  if(r.perChange30d>0){s+=Math.min(r.perChange30d,15)*.8;why.push("30d +"+f2(r.perChange30d)+"%")}
-  if(r.perChange365d>0)s+=4;
+  if(pos>=.7){s+=22*pos;why.push("near day high")}
+  if(nh<=10){s+=(10-nh)*2.4;why.push(f2(nh)+"% below 52w high")}
   return{score:Math.max(0,Math.min(100,Math.round(s))),why:why.join(", "),hot:p>10};
 }
-function build(d,idx){
-  meta={ts:d.timestamp,ms:d.marketStatus&&d.marketStatus.marketStatus};
+function build(t){
   const mv=(+$("min").value||0)*1e7;
-  return(d.data||[]).filter(r=>r.symbol&&r.symbol!==idx&&r.lastPrice>0&&r.yearHigh&&r.lastPrice*r.totalTradedVolume>=mv)
-    .map(r=>({...r,name:(r.meta&&r.meta.companyName)||r.symbol,...score(r)}));
+  return csv(t).slice(1).map(c=>{const r={symbol:(c[0]||"").trim(),name:c[1]||c[0],price:num(c[2]),chg:num(c[3]),high:num(c[4]),low:num(c[5]),vol:num(c[6]),h52:num(c[7]),l52:num(c[8]),prev:num(c[9])};
+    r.nh=r.h52>0?Math.max(0,(r.h52-r.price)/r.h52*100):99;return r})
+   .filter(r=>r.symbol&&r.price>0&&r.high>0&&r.price*r.vol>=mv).map(r=>({...r,...score(r)}));
 }
-function plan(r,per){const tg=+$("tg").value/100,sl=+$("sl").value/100,q=Math.floor(per/r.lastPrice);
-  return{q,cost:q*r.lastPrice,tgt:r.lastPrice*(1+tg),stp:r.lastPrice*(1-sl),win:q*r.lastPrice*tg,loss:q*r.lastPrice*sl}}
+function plan(r,per){const tg=+$("tg").value/100,sl=+$("sl").value/100,q=Math.floor(per/r.price);
+  return{q,cost:q*r.price,tgt:r.price*(1+tg),stp:r.price*(1-sl),win:q*r.price*tg,loss:q*r.price*sl}}
 function render(){
   const cap=+$("cap").value,n=Math.max(1,Math.min(6,+$("np").value||3)),per=cap/n;
   const top=[...rows].sort((a,b)=>b.score-a.score).slice(0,n);let W=0,L=0,C=0;
   $("cards").innerHTML=top.map(r=>{const p=plan(r,per);W+=p.win;L+=p.loss;C+=p.cost;
     return`<div class="card"><div class="top"><span class="sym">${r.symbol}</span><span class="score">${r.score}</span></div><div class="nm">${r.name}</div>
-    <div class="row"><span>Price</span><b>₹${f2(r.lastPrice)} <span class="${r.pChange>=0?"up":"dn"}">${r.pChange>=0?"+":""}${f2(r.pChange)}%</span></b></div>
+    <div class="row"><span>Price</span><b>₹${f2(r.price)} <span class="${r.chg>=0?"up":"dn"}">${r.chg>=0?"+":""}${f2(r.chg)}%</span></b></div>
     <div class="row"><span>Buy qty</span><b>${p.q} (${inr(p.cost)})</b></div>
     <div class="row"><span>Target</span><b class="up">₹${f2(p.tgt)} → +${inr(p.win)}</b></div>
     <div class="row"><span>Stop-loss</span><b class="dn">₹${f2(p.stp)} → −${inr(p.loss)}</b></div>
@@ -99,26 +101,29 @@ function render(){
   <div class="box"><small>If all stops hit</small><b class="dn">−${inr(L)}</b><small>${f2(L/cap*100)}% of capital</small></div>
   <div class="box"><small>Deployed</small><b>${inr(C)}</b><small>of ${inr(cap)}</small></div>
   <div class="box"><small>Reward : risk</small><b>${L?f2(W/L):"–"} : 1</b><small>needs win-rate above ${L?Math.round(L/(W+L)*100):0}%</small></div>`;
-  const cols=[["symbol","Stock"],["lastPrice","Price"],["pChange","Day %"],["perChange30d","30d %"],["nearWKH","From 52w high %"],["totalTradedVolume","Volume"],["score","Score"]];
+  const cols=[["symbol","Stock"],["price","Price"],["chg","Day %"],["nh","From 52w high %"],["vol","Volume"],["score","Score"]];
   $("thead").innerHTML=cols.map(c=>`<th data-k="${c[0]}">${c[1]}${sortKey===c[0]?(sortDir>0?" ▲":" ▼"):""}</th>`).join("");
-  $("tb").innerHTML=[...rows].sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir).slice(0,100).map(r=>`<tr><td><b>${r.symbol}</b></td><td>₹${f2(r.lastPrice)}</td><td class="${r.pChange>=0?"up":"dn"}">${f2(r.pChange)}</td><td>${f2(r.perChange30d)}</td><td>${f2(r.nearWKH)}</td><td>${(+r.totalTradedVolume).toLocaleString("en-IN")}</td><td><b>${r.score}</b></td></tr>`).join("");
+  $("tb").innerHTML=[...rows].sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir).map(r=>`<tr><td><b>${r.symbol}</b></td><td>₹${f2(r.price)}</td><td class="${r.chg>=0?"up":"dn"}">${f2(r.chg)}</td><td>${f2(r.nh)}</td><td>${r.vol.toLocaleString("en-IN")}</td><td><b>${r.score}</b></td></tr>`).join("");
   document.querySelectorAll("th").forEach(t=>t.onclick=()=>{const k=t.dataset.k;sortDir=sortKey===k?-sortDir:-1;sortKey=k;render()});
 }
+function open_(){const d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"})),m=d.getHours()*60+d.getMinutes(),w=d.getDay();return w>0&&w<6&&m>=555&&m<=930}
 async function load(){
-  const px=get("amit_px").replace(/\/+$/,""),idx=$("idx").value;
-  if(!px){$("setup").style.display="block";return}
+  const u=SHEET_URL||get("amit_csv");
+  if(!u){$("setup").style.display="block";return}
   try{
-    const r=await fetch(px+"/?index="+encodeURIComponent(idx)),d=await r.json();
-    if(!r.ok||d.error)throw new Error(d.error||r.status);
-    rows=build(d,idx);$("err").style.display="none";$("setup").style.display="none";
-    $("dot").className="dot"+(/open/i.test(meta.ms||"")?" on":"");
-    $("stat").textContent=(meta.ms||"Market")+" · NSE time "+(meta.ts||"–")+" · fetched "+new Date().toLocaleTimeString("en-IN");
+    const r=await fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now());
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    rows=build(await r.text());
+    if(!rows.length)throw new Error("no usable rows; check the sheet has prices");
+    $("err").style.display="none";$("setup").style.display="none";
+    const o=open_();$("dot").className="dot"+(o?" on":"");
+    $("stat").textContent=(o?"Market open":"Market closed")+" · loaded "+new Date().toLocaleTimeString("en-IN");
     render();
   }catch(e){$("setup").style.display="block";$("err").style.display="block";
-    $("err").textContent="Couldn't load NSE data ("+e.message+"). Check the Worker URL, or NSE may be blocking the request. Retrying in 30 seconds.";}
+    $("err").textContent="Couldn't load the sheet ("+e.message+"). Make sure it is published to the web as CSV and the link is correct.";}
 }
-$("save").onclick=()=>{set("amit_px",$("px").value.trim());load()};
+$("save").onclick=()=>{set("amit_csv",$("px").value.trim());load()};
 ["cap","np","tg","sl"].forEach(i=>$(i).oninput=()=>rows.length&&render());
-$("idx").onchange=load;$("min").onchange=load;
-load();timer=setInterval(()=>{if(!document.hidden)load()},30000);
+$("min").onchange=load;
+load();setInterval(()=>{if(!document.hidden)load()},60000);
 </script></body></html>
