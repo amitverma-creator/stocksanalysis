@@ -93,10 +93,12 @@ function refresh_(){
   v.forEach((r,i)=>{if(typeof r[1]==="number"&&r[1]>0)rows.push({symbol:SYM[i],name:String(r[0]||SYM[i]),price:r[1],chg:+r[2]||0,high:+r[3]||0,low:+r[4]||0,vol:+r[5]||0,h52:+r[6]||0,l52:+r[7]||0,prev:+r[8]||0})});
   return {updated:new Date().toISOString(),rows:rows};
 }
-function doGet(){
+function doGet(e){
   const c=CacheService.getScriptCache();
   let out=c.get("d");
   if(!out){out=JSON.stringify(refresh_());c.put("d",out,50)}
+  const cb=e&&e.parameter&&e.parameter.callback;
+  if(cb&&/^[A-Za-z0-9_]+$/.test(cb))return ContentService.createTextOutput(cb+"("+out+")").setMimeType(ContentService.MimeType.JAVASCRIPT);
   return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
 }`;
 const $=id=>document.getElementById(id),inr=n=>"₹"+Math.round(n).toLocaleString("en-IN"),f2=n=>(+n||0).toFixed(2);
@@ -140,12 +142,19 @@ function render(){
   document.querySelectorAll("th").forEach(t=>t.onclick=()=>{const k=t.dataset.k;sortDir=sortKey===k?-sortDir:-1;sortKey=k;render()});
 }
 function open_(){const d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"})),m=d.getHours()*60+d.getMinutes(),w=d.getDay();return w>0&&w<6&&m>=555&&m<=930}
+function jsonp(u){return new Promise((res,rej)=>{
+  const cb="amit_cb"+Date.now(),s=document.createElement("script");
+  const done=()=>{clearTimeout(t);delete window[cb];s.remove()};
+  const t=setTimeout(()=>{done();rej(new Error("no reply from Google. Re-deploy the script as a New version with access set to Anyone"))},45000);
+  window[cb]=d=>{done();res(d)};
+  s.onerror=()=>{done();rej(new Error("could not reach the Web app URL"))};
+  s.src=u+(u.includes("?")?"&":"?")+"callback="+cb;document.head.appendChild(s);
+})}
 async function load(){
   const u=WEBAPP_URL||saved();
   if(!/script\.google\.com\/macros\/s\//.test(u)){$("setup").style.display="block";return}
   try{
-    const r=await fetch(u),tx=await r.text();
-    let d;try{d=JSON.parse(tx)}catch(e){throw new Error("the Web app isn't set to 'Anyone' access, or the URL is wrong")}
+    const d=await jsonp(u);
     rows=build(d);
     if(!d.rows||!d.rows.length)throw new Error("Google returned no prices yet. Wait a minute and reload");
     $("err").style.display="none";$("setup").style.display="none";
