@@ -42,6 +42,8 @@ th{color:var(--mut);font-weight:600;cursor:pointer;white-space:nowrap}
 tr:last-child td{border-bottom:0}
 .err{background:#3a1a1f;border:1px solid #7a2c36;color:#ffb3b3;padding:12px 14px;border-radius:10px;margin-bottom:16px;display:none;font-size:13px}
 footer{margin-top:28px;color:var(--mut);font-size:12px}
+.pm{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;margin-top:8px;padding-top:6px;border-top:1px solid var(--line)}.pm .row{font-size:12px}details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-top:20px;font-size:13px}summary{cursor:pointer;font-weight:700}dt{font-weight:700;margin-top:10px}dd{margin:2px 0 0;color:var(--mut)}
+.tag{display:inline-block;border-radius:6px;padding:0 7px;font-size:11px;font-weight:700;margin-right:6px}.t1{background:#16382f;color:var(--up)}.t2{background:#3a3115;color:var(--gold)}.t3{background:#3a1a1f;color:var(--dn)}.rs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}.rs .card{padding:10px 14px;font-size:13px}.bk{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;font-size:13px;color:var(--mut);margin-bottom:16px}.bk b{color:var(--tx)}
 </style></head><body><div class="wrap">
 <header><h1>Amit<span>Stocks</span></h1><div class="status"><i class="dot" id="dot"></i><span id="stat">Not connected</span></div></header>
 <div class="warn"><b>Read this first:</b> No tool can predict prices with 100% accuracy. This is a rule-based momentum screen, not a guarantee or financial advice. Google's NSE prices can lag by up to about 20 minutes. Targeting ₹5–20K on ₹1.5–2L in 4–5 days (2.5–13%) needs high risk, and stop-losses can hit. Consult a SEBI-registered advisor.</div>
@@ -61,23 +63,36 @@ footer{margin-top:28px;color:var(--mut);font-size:12px}
 <div><label for="sl">Stop-loss %</label><input id="sl" type="number" value="2.5" step="0.5"></div>
 <div><label for="min">Min traded today (₹ Cr)</label><input id="min" type="number" value="25"></div>
 </div>
+<div class="bk"><b>Market notes, 31 Oct 2026:</b> Nifty closed Friday at 23,053 after two up days led by IT and pharma, with banks, energy and the broader market weak. Analysts mark 22,600 / 22,400 as support and 23,200 as resistance, so expect a range-bound tape. Elevated crude, fund flows and geopolitics are the main risks, and the weekly expiry moves around Diwali (check the NSE holiday list). Q2 results run Nov 2–7.</div>
 <div class="sum" id="sum"></div>
-<h2>Top momentum setups</h2><div class="cards" id="cards"></div>
+<h2>Today's shortlist (ranked by the model)</h2><div class="cards" id="cards"></div>
+<h2>This week's research watchlist, checked live</h2><div class="rs" id="res"></div>
 <h2>Full screen</h2><div class="tw"><table><thead><tr id="thead"></tr></thead><tbody id="tb"></tbody></table></div>
+<details><summary>What every number means</summary><dl>
+<dt>Score (0–100)</dt><dd>Adds up trend (20-day average, 5 and 20-day moves), today's move, where the price sits in today's range, RSI, volume, nearness to the 52-week high, and how likely the stock is to move enough to reach your target. Higher is a better fit for a 4–5 day trade. It is a ranking, not a prediction.</dd>
+<dt>RSI (14)</dt><dd>Momentum gauge from 0 to 100. 55–68 is healthy strength. Above 75 is overbought, so a pullback is more likely; below 45 is weak.</dd>
+<dt>vs 20-day avg</dt><dd>How far the price is above its 20-session average. Positive means an uptrend; very high means stretched.</dd>
+<dt>5-day / 20-day move</dt><dd>Recent price change over about one and four weeks. Steady gains beat sudden spikes.</dd>
+<dt>Volume vs avg</dt><dd>Today's traded volume divided by the 20-day average. Above 1x means real participation. Early in the session it reads low because the day isn't finished.</dd>
+<dt>Daily swing</dt><dd>Typical daily move (standard deviation of the last 20 days). Bigger swings can reach targets faster but also hit stop-losses faster.</dd>
+<dt>Touch target / Touch stop</dt><dd>Chance the price touches your target or your stop-loss at some point within 5 sessions, from a standard random-walk formula using the stock's own swing. Both can happen, so they don't add up to 100%. These are statistical estimates and ignore news, results and market crashes.</dd>
+<dt>Safety checks</dt><dd>A stock is skipped if it is below its 20-day average, overbought, weak, already up 7%+ today, falling today, or too calm to reach your target. If nothing passes, the system shows nothing rather than forcing a trade.</dd>
+</dl></details>
 <footer>Reloads every 60 seconds. Score = day momentum + close near day high + nearness to 52-week high, minus a penalty for moves above 6% today. Moves above 10% are flagged high risk. Watchlist is the stock list inside your Apps Script.</footer>
 </div>
 <script>
 const GS=`const SYM="RELIANCE TCS HDFCBANK ICICIBANK INFY BHARTIARTL SBIN ITC LT HINDUNILVR KOTAKBANK AXISBANK BAJFINANCE MARUTI SUNPHARMA TITAN NTPC ONGC POWERGRID ULTRACEMCO ASIANPAINT TATAMOTORS TATASTEEL JSWSTEEL ADANIPORTS ADANIENT COALINDIA WIPRO HCLTECH TECHM NESTLEIND BAJAJFINSV CIPLA DRREDDY EICHERMOT HEROMOTOCO GRASIM HINDALCO INDUSINDBK APOLLOHOSP BPCL TRENT SBILIFE HDFCLIFE DIVISLAB BRITANNIA BEL HAL IRCTC PNB BANKBARODA VEDL".split(" ");
 const AT=["name","price","changepct","high","low","volume","high52","low52","closeyest"];
-function getSheet_(){
+const B=80;
+function getSS_(){
   const p=PropertiesService.getScriptProperties();
   let ss=null,id=p.getProperty("sid");
   if(id){try{ss=SpreadsheetApp.openById(id)}catch(e){}}
   if(!ss){ss=SpreadsheetApp.create("AmitStocks data");p.setProperty("sid",ss.getId())}
-  return ss.getSheets()[0];
+  return ss;
 }
-function refresh_(){
-  const sh=getSheet_(),n=SYM.length;
+function quotes_(){
+  const sh=getSS_().getSheets()[0],n=SYM.length;
   sh.getRange(1,1,1,10).setValues([["Symbol","Name","Price","ChangePct","High","Low","Volume","High52","Low52","PrevClose"]]);
   sh.getRange(2,1,n,1).setValues(SYM.map(s=>[s]));
   const body=sh.getRange(2,2,n,9);
@@ -91,6 +106,43 @@ function refresh_(){
   }
   const rows=[];
   v.forEach((r,i)=>{if(typeof r[1]==="number"&&r[1]>0)rows.push({symbol:SYM[i],name:String(r[0]||SYM[i]),price:r[1],chg:+r[2]||0,high:+r[3]||0,low:+r[4]||0,vol:+r[5]||0,h52:+r[6]||0,l52:+r[7]||0,prev:+r[8]||0})});
+  return rows;
+}
+function hist_(){
+  const cache=CacheService.getScriptCache(),k=cache.get("h");
+  if(k)return JSON.parse(k);
+  const ss=getSS_(),sh=ss.getSheetByName("H")||ss.insertSheet("H"),n=SYM.length;
+  if(sh.getMaxRows()<B*n+5)sh.insertRowsAfter(sh.getMaxRows(),B*n+5-sh.getMaxRows());
+  sh.clear();SpreadsheetApp.flush();
+  SYM.forEach((s,i)=>sh.getRange(i*B+1,1).setFormula('=IFERROR(GOOGLEFINANCE("NSE:'+s+'","all",TODAY()-95,TODAY()),"")'));
+  let v=[];
+  for(let t=0;t<10;t++){
+    SpreadsheetApp.flush();Utilities.sleep(2500);
+    v=sh.getRange(1,1,B*n,6).getValues();
+    if(!v.some(r=>r[0]==="Loading..."))break;
+  }
+  const today=Utilities.formatDate(new Date(),"Asia/Kolkata","yyyy-MM-dd"),out={};
+  const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  SYM.forEach((s,i)=>{
+    const rows=v.slice(i*B,i*B+B).filter(r=>r[0] instanceof Date&&typeof r[4]==="number");
+    if(rows.length&&Utilities.formatDate(rows[rows.length-1][0],"Asia/Kolkata","yyyy-MM-dd")===today)rows.pop();
+    const len=rows.length;if(len<22)return;
+    const c=rows.map(r=>r[4]),h=rows.map(r=>r[2]),l=rows.map(r=>r[3]),vo=rows.map(r=>+r[5]||0);
+    const ret=[];for(let j=len-20;j<len;j++)ret.push(Math.log(c[j]/c[j-1]));
+    const m=avg(ret),sig=Math.sqrt(avg(ret.map(x=>(x-m)*(x-m))))*100;
+    let g=0,ls=0,tr=0;
+    for(let j=len-14;j<len;j++){
+      const d=c[j]-c[j-1];if(d>0)g+=d;else ls-=d;
+      tr+=Math.max(h[j]-l[j],Math.abs(h[j]-c[j-1]),Math.abs(l[j]-c[j-1]));
+    }
+    out[s]={sma20:avg(c.slice(len-20)),rsi:ls===0?100:100-100/(1+g/ls),sig:sig,atrp:tr/14/c[len-1]*100,avgv:avg(vo.slice(len-20)),c5:c[len-5],c20:c[len-20]};
+  });
+  if(Object.keys(out).length)cache.put("h",JSON.stringify(out),21000);
+  return out;
+}
+function refresh_(){
+  const rows=quotes_(),h=hist_();
+  rows.forEach(r=>Object.assign(r,h[r.symbol]||{}));
   return {updated:new Date().toISOString(),rows:rows};
 }
 function doGet(e){
@@ -107,45 +159,82 @@ const get=k=>{try{return localStorage.getItem(k)||""}catch(e){return ""}},set=(k
 const WEBAPP_URL=""; // optional: hard-code your Web app URL here
 const saved=()=>{const u=get("amit_app");return u};
 $("px").value=saved();
-function score(r){
-  let s=0,why=[];const rng=r.high-r.low,pos=rng>0?(r.price-r.low)/rng:.5,p=r.chg,nh=r.nh;
-  if(p>0){s+=Math.min(p,4)*9;why.push("up "+f2(p)+"% today")}
-  if(p>6)s-=(p-6)*6;
-  if(pos>=.7){s+=22*pos;why.push("near day high")}
-  if(nh<=10){s+=(10-nh)*2.4;why.push(f2(nh)+"% below 52w high")}
-  return{score:Math.max(0,Math.min(100,Math.round(s))),why:why.join(", "),hot:p>10};
+const cdf=z=>{const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p};
+const touch=(x,s)=>s>0?Math.min(1,2*(1-cdf(x/s))):0;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ASOF=new Date("2026-10-31T00:00:00+05:30"),FRESH=(Date.now()-ASOF)/864e5<=8;
+const EVENT=new Set(["ITC","BAJAJFINSV","APOLLOHOSP","HINDALCO","DIVISLAB"]);
+const EXT={TRENT:10.6,DRREDDY:10,APOLLOHOSP:9.3,ADANIPORTS:8.7};
+const RES=[["INFY",1,"Nifty IT +2.3% on Oct 30 after Cognizant results; Infosys +3.4%"],["HCLTECH",1,"Led the IT rotation on Oct 30"],["WIPRO",1,"Up over 4% on Oct 30 with the IT rotation"],["SUNPHARMA",1,"Among Friday's key gainers; Pharma index +7.1% on the week"],
+["ITC",2,"Q2 results this week: can gap either way"],["BAJAJFINSV",2,"Q2 results this week"],["HINDALCO",2,"Q2 results this week"],["APOLLOHOSP",2,"Q2 results this week and already +9.3% last week"],["DIVISLAB",2,"Results due Nov 7"],
+["TRENT",3,"+10.6% last week on 25% profit growth: stretched"],["DRREDDY",3,"+10% last week: stretched"],["ADANIPORTS",3,"+8.7% last week: stretched"]];
+function analyse(r){
+  r.event=FRESH&&EVENT.has(r.symbol);
+  const tg=+$("tg").value,sl=+$("sl").value;
+  r.nh=r.h52>0?Math.max(0,(r.h52-r.price)/r.h52*100):99;
+  r.ok=!!r.sma20&&r.sig>0&&r.c5>0&&r.c20>0;
+  r.score=0;r.pass=false;
+  if(!r.ok){r.verdict="History still loading";return r}
+  const rng=r.high-r.low,pos=rng>0?(r.price-r.low)/rng:.5;
+  r.vs20=(r.price/r.sma20-1)*100;r.r5=(r.price/r.c5-1)*100;r.r20=(r.price/r.c20-1)*100;r.rv=r.avgv>0?r.vol/r.avgv:0;
+  r.s5=r.sig*Math.sqrt(5);r.pT=touch(tg,r.s5);r.pS=touch(sl,r.s5);
+  let s=(r.price>r.sma20?8:0)+clamp(r.r5,0,6)/6*12+clamp(r.r20,0,15)/15*5;
+  s+=clamp(r.chg,0,3.5)/3.5*15+clamp((pos-.5)/.5,0,1)*10;
+  s+=r.rsi>=55&&r.rsi<=68?15:r.rsi>68&&r.rsi<75?8:r.rsi>=45&&r.rsi<55?7:0;
+  s+=clamp((r.rv-.8)/1.2,0,1)*10+(r.nh<=8?(8-r.nh)/8*10:0)+clamp(r.pT/.35,0,1)*15;
+  r.score=Math.round(s);
+  const bad=[];
+  if(r.price<=r.sma20)bad.push("below 20-day average");
+  if(r.rsi>=75)bad.push("overbought, RSI "+Math.round(r.rsi));
+  if(r.rsi<45)bad.push("weak RSI "+Math.round(r.rsi));
+  if(r.chg>=7)bad.push("already up "+f2(r.chg)+"% today");
+  if(r.chg<-0.5)bad.push("falling today");
+  if(r.pT<.15)bad.push("too calm to reach target");
+  if(FRESH&&EXT[r.symbol])bad.push("already up "+EXT[r.symbol]+"% last week");
+  r.pass=!bad.length;r.hot=r.chg>10;r.verdict=r.pass?"Passes all safety checks":"Skip: "+bad.join(", ");
+  return r;
 }
 function build(d){
   const mv=(+$("min").value||0)*1e7;
-  return(d.rows||[]).map(r=>({...r,nh:r.h52>0?Math.max(0,(r.h52-r.price)/r.h52*100):99}))
-   .filter(r=>r.price>0&&r.high>0&&r.price*r.vol>=mv).map(r=>({...r,...score(r)}));
+  return(d.rows||[]).filter(r=>r.price>0&&r.high>0&&r.price*r.vol>=mv).map(analyse);
 }
 function plan(r,per){const tg=+$("tg").value/100,sl=+$("sl").value/100,q=Math.floor(per/r.price);
   return{q,cost:q*r.price,tgt:r.price*(1+tg),stp:r.price*(1-sl),win:q*r.price*tg,loss:q*r.price*sl}}
+const pc=x=>Math.round(x*100)+"%";
 function render(){
-  const cap=+$("cap").value,n=Math.max(1,Math.min(6,+$("np").value||3)),per=cap/n;
-  const top=[...rows].sort((a,b)=>b.score-a.score).slice(0,n);let W=0,L=0,C=0;
-  $("cards").innerHTML=top.map(r=>{const p=plan(r,per);W+=p.win;L+=p.loss;C+=p.cost;
+  const cap=+$("cap").value,n=Math.max(1,Math.min(6,+$("np").value||3));
+  const top=rows.filter(r=>r.pass).sort((a,b)=>b.score-a.score).slice(0,n),per=cap/Math.max(top.length,1);
+  let W=0,L=0,C=0,P=0;
+  $("cards").innerHTML=top.map(r=>{const p=plan(r,per);W+=p.win;L+=p.loss;C+=p.cost;P+=r.pT;
     return`<div class="card"><div class="top"><span class="sym">${r.symbol}</span><span class="score">${r.score}</span></div><div class="nm">${r.name}</div>
     <div class="row"><span>Price</span><b>₹${f2(r.price)} <span class="${r.chg>=0?"up":"dn"}">${r.chg>=0?"+":""}${f2(r.chg)}%</span></b></div>
     <div class="row"><span>Buy qty</span><b>${p.q} (${inr(p.cost)})</b></div>
     <div class="row"><span>Target</span><b class="up">₹${f2(p.tgt)} → +${inr(p.win)}</b></div>
     <div class="row"><span>Stop-loss</span><b class="dn">₹${f2(p.stp)} → −${inr(p.loss)}</b></div>
-    <div class="why">${r.hot?'<span class="hot">High risk: spiked over 10% today.</span> ':""}${r.why||"weak signals"}</div></div>`}).join("")||"<div class='card'>No stocks match your filters.</div>";
-  $("sum").innerHTML=`<div class="box hero"><small>If all targets hit</small><b class="up">+${inr(W)}</b><small>${W>=5000?"meets":"below"} your 5K goal</small></div>
+    <div class="pm"><div class="row"><span>RSI (14)</span><b>${Math.round(r.rsi)}</b></div><div class="row"><span>vs 20-day avg</span><b>${r.vs20>=0?"+":""}${f2(r.vs20)}%</b></div>
+    <div class="row"><span>5-day move</span><b>${r.r5>=0?"+":""}${f2(r.r5)}%</b></div><div class="row"><span>20-day move</span><b>${r.r20>=0?"+":""}${f2(r.r20)}%</b></div>
+    <div class="row"><span>Volume vs avg</span><b>${f2(r.rv)}x</b></div><div class="row"><span>Daily swing</span><b>${f2(r.sig)}%</b></div>
+    <div class="row"><span>Touch target</span><b>${pc(r.pT)}</b></div><div class="row"><span>Touch stop</span><b>${pc(r.pS)}</b></div></div>
+    <div class="why">${r.event?'<span class="hot">⚠ Q2 results this week: can gap either way.</span> ':""}Typical 5-day range ±${f2(r.s5)}%. ${r.verdict}.</div></div>`}).join("")||"<div class='card'>No stock passes every safety check right now. The system won't force a trade: waiting is a valid decision. Try again after the next market session or loosen the liquidity filter.</div>";
+  const G={1:["t1","Momentum"],2:["t2","Results risk"],3:["t3","Stretched"]};
+  $("res").innerHTML=RES.map(x=>{const r=rows.find(q=>q.symbol===x[0]),g=G[x[1]];
+    const live=r?`₹${f2(r.price)} <span class="${r.chg>=0?"up":"dn"}">${r.chg>=0?"+":""}${f2(r.chg)}%</span> · score ${r.score} · <span style="color:${r.pass?"var(--up)":"var(--mut)"}">${r.verdict}</span>`:"not in the live data right now";
+    return`<div class="card"><div><span class="tag ${g[0]}">${g[1]}</span><b>${x[0]}</b></div><div class="nm" style="white-space:normal">${x[2]}</div><div>${live}</div></div>`}).join("");
+  $("sum").innerHTML=`<div class="box hero"><small>If all targets hit</small><b class="up">+${inr(W)}</b><small>${W>=5000?"meets":"below"} your 5K goal (needs ${f2(5000/cap*100)}% on capital)</small></div>
   <div class="box"><small>If all stops hit</small><b class="dn">−${inr(L)}</b><small>${f2(L/cap*100)}% of capital</small></div>
-  <div class="box"><small>Deployed</small><b>${inr(C)}</b><small>of ${inr(cap)}</small></div>
-  <div class="box"><small>Reward : risk</small><b>${L?f2(W/L):"–"} : 1</b><small>needs win-rate above ${L?Math.round(L/(W+L)*100):0}%</small></div>`;
-  const cols=[["symbol","Stock"],["price","Price"],["chg","Day %"],["nh","From 52w high %"],["vol","Volume"],["score","Score"]];
-  $("thead").innerHTML=cols.map(c=>`<th data-k="${c[0]}">${c[1]}${sortKey===c[0]?(sortDir>0?" ▲":" ▼"):""}</th>`).join("");
-  $("tb").innerHTML=[...rows].sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir).map(r=>`<tr><td><b>${r.symbol}</b></td><td>₹${f2(r.price)}</td><td class="${r.chg>=0?"up":"dn"}">${f2(r.chg)}</td><td>${f2(r.nh)}</td><td>${(+r.vol).toLocaleString("en-IN")}</td><td><b>${r.score}</b></td></tr>`).join("");
-  document.querySelectorAll("th").forEach(t=>t.onclick=()=>{const k=t.dataset.k;sortDir=sortKey===k?-sortDir:-1;sortKey=k;render()});
+  <div class="box"><small>Deployed</small><b>${inr(C)}</b><small>${top.length} stock(s) of ${inr(cap)}</small></div>
+  <div class="box"><small>Avg chance each touches target</small><b>${top.length?pc(P/top.length):"–"}</b><small>model estimate, not a promise</small></div>`;
+  const cols=[["symbol","Stock"],["price","Price"],["chg","Day %"],["rsi","RSI"],["vs20","vs 20d %"],["rv","Vol x"],["sig","Swing %"],["pT","Touch tgt"],["score","Score"]];
+  $("thead").innerHTML=cols.map(c=>`<th data-k="${c[0]}">${c[1]}${sortKey===c[0]?(sortDir>0?" ▲":" ▼"):""}</th>`).join("")+"<th style='text-align:left'>Verdict</th>";
+  const g=(r,k)=>r[k]===undefined?-1e9:r[k];
+  $("tb").innerHTML=[...rows].sort((a,b)=>(g(a,sortKey)>g(b,sortKey)?1:-1)*sortDir).map(r=>`<tr><td><b>${r.symbol}</b></td><td>₹${f2(r.price)}</td><td class="${r.chg>=0?"up":"dn"}">${f2(r.chg)}</td><td>${r.ok?Math.round(r.rsi):"–"}</td><td>${r.ok?f2(r.vs20):"–"}</td><td>${r.ok?f2(r.rv):"–"}</td><td>${r.ok?f2(r.sig):"–"}</td><td>${r.ok?pc(r.pT):"–"}</td><td><b>${r.score}</b></td><td style="text-align:left;color:${r.pass?"var(--up)":"var(--mut)"}">${r.verdict}</td></tr>`).join("");
+  document.querySelectorAll("th[data-k]").forEach(t=>t.onclick=()=>{const k=t.dataset.k;sortDir=sortKey===k?-sortDir:-1;sortKey=k;render()});
 }
 function open_(){const d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"})),m=d.getHours()*60+d.getMinutes(),w=d.getDay();return w>0&&w<6&&m>=555&&m<=930}
 function jsonp(u){return new Promise((res,rej)=>{
   const cb="amit_cb"+Date.now(),s=document.createElement("script");
   const done=()=>{clearTimeout(t);delete window[cb];s.remove()};
-  const t=setTimeout(()=>{done();rej(new Error("no reply from Google. Re-deploy the script as a New version with access set to Anyone"))},45000);
+  const t=setTimeout(()=>{done();rej(new Error("no reply from Google. Re-deploy the script as a New version with access set to Anyone"))},120000);
   window[cb]=d=>{done();res(d)};
   s.onerror=()=>{done();rej(new Error("could not reach the Web app URL"))};
   s.src=u+(u.includes("?")?"&":"?")+"callback="+cb;document.head.appendChild(s);
@@ -164,7 +253,7 @@ async function load(){
   }catch(e){$("err").style.display="block";$("err").textContent="Couldn't load data: "+e.message+".";if(!rows.length)$("setup").style.display="block"}
 }
 $("copy").onclick=async()=>{try{await navigator.clipboard.writeText(GS)}catch(e){const a=document.createElement("textarea");a.value=GS;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}$("cm").textContent="Copied. Paste it into the Apps Script editor."};
-$("save").onclick=()=>{set("amit_app",$("px").value.trim());$("stat").textContent="Loading (first load takes ~20 seconds)…";load()};
+$("save").onclick=()=>{set("amit_app",$("px").value.trim());$("stat").textContent="Loading (first load takes up to a minute)…";load()};
 ["cap","np","tg","sl"].forEach(i=>$(i).oninput=()=>rows.length&&render());
 $("min").onchange=load;
 load();setInterval(()=>{if(!document.hidden)load()},60000);
