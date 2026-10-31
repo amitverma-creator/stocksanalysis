@@ -17,7 +17,8 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
 input,button{width:100%;background:#0d1524;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 10px;font:inherit}
 button{background:var(--gold);color:#1a1405;font-weight:700;cursor:pointer;border:0}
 input:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
-.setup{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:14px 16px;margin-bottom:16px;font-size:13px}
+.setup{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:14px;display:none}
+.setup ol{margin:8px 0 12px;padding-left:20px}.setup li{margin:4px 0}
 .setup .g{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:8px}
 .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
@@ -43,11 +44,16 @@ tr:last-child td{border-bottom:0}
 footer{margin-top:28px;color:var(--mut);font-size:12px}
 </style></head><body><div class="wrap">
 <header><h1>Amit<span>Stocks</span></h1><div class="status"><i class="dot" id="dot"></i><span id="stat">Not connected</span></div></header>
-<div class="warn"><b>Read this first:</b> No tool can predict prices with 100% accuracy. This is a rule-based momentum screen, not a guarantee or financial advice. Google's NSE prices can be delayed by up to about 20 minutes, so don't treat them as live ticks. Targeting ₹5–20K on ₹1.5–2L in 4–5 days (2.5–13%) needs high risk, and stop-losses can hit. Consult a SEBI-registered advisor.</div>
-<div class="setup" id="setup"><b>Data source</b> — paste your Google Sheet's "Publish to web" link. Any published link works. Saved only in this browser.
-<div class="g"><input id="px" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" aria-label="Published CSV link"><button id="save" style="width:auto">Save &amp; load</button></div></div>
+<div class="warn"><b>Read this first:</b> No tool can predict prices with 100% accuracy. This is a rule-based momentum screen, not a guarantee or financial advice. Google's NSE prices can lag by up to about 20 minutes. Targeting ₹5–20K on ₹1.5–2L in 4–5 days (2.5–13%) needs high risk, and stop-losses can hit. Consult a SEBI-registered advisor.</div>
+<div class="setup" id="setup"><b>One-time setup (2 minutes)</b>
+<ol>
+<li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener" style="color:var(--gold)">script.google.com</a> and create a new project.</li>
+<li>Click <b>Copy Apps Script</b> below, select all the code in the editor, paste, and press Save.</li>
+<li>Click Deploy → New deployment → type <b>Web app</b> → Execute as <b>Me</b>, Who has access <b>Anyone</b> → Deploy. Approve the permissions (Advanced → Go to project if Google warns).</li>
+<li>Copy the Web app URL and paste it here.</li></ol>
+<button id="copy" style="width:auto">Copy Apps Script</button> <span id="cm"></span>
+<div class="g"><input id="px" type="url" placeholder="https://script.google.com/macros/s/.../exec" aria-label="Web app URL"><button id="save" style="width:auto">Save &amp; load</button></div></div>
 <div class="err" id="err"></div>
-<div class="setup" id="fix" style="display:none"><b>Your sheet has no prices yet.</b> Click the button, open your Google Sheet, click cell A1 on the Watchlist tab (clear the sheet first with Ctrl+A, Delete) and press Ctrl+V. Wait a minute, then this page fills in by itself.<div style="margin-top:8px"><button id="copy" style="width:auto">Copy sheet formulas</button> <span id="cm"></span></div></div>
 <div class="ctl">
 <div><label for="cap">Capital (₹)</label><input id="cap" type="number" value="175000" step="5000"></div>
 <div><label for="np">Number of stocks</label><input id="np" type="number" value="3" min="1" max="6"></div>
@@ -58,21 +64,47 @@ footer{margin-top:28px;color:var(--mut);font-size:12px}
 <div class="sum" id="sum"></div>
 <h2>Top momentum setups</h2><div class="cards" id="cards"></div>
 <h2>Full screen</h2><div class="tw"><table><thead><tr id="thead"></tr></thead><tbody id="tb"></tbody></table></div>
-<footer>Reloads every 60 seconds. Google refreshes a published sheet every few minutes, so data lags. Score = day momentum + close near day high + nearness to 52-week high, minus penalties for moves above 6% today. Moves above 10% are flagged high risk.</footer>
+<footer>Reloads every 60 seconds. Score = day momentum + close near day high + nearness to 52-week high, minus a penalty for moves above 6% today. Moves above 10% are flagged high risk. Watchlist is the stock list inside your Apps Script.</footer>
 </div>
 <script>
-const SHEET_URL=""; // optional: hard-code your published CSV link here
+const GS=`const SYM="RELIANCE TCS HDFCBANK ICICIBANK INFY BHARTIARTL SBIN ITC LT HINDUNILVR KOTAKBANK AXISBANK BAJFINANCE MARUTI SUNPHARMA TITAN NTPC ONGC POWERGRID ULTRACEMCO ASIANPAINT TATAMOTORS TATASTEEL JSWSTEEL ADANIPORTS ADANIENT COALINDIA WIPRO HCLTECH TECHM NESTLEIND BAJAJFINSV CIPLA DRREDDY EICHERMOT HEROMOTOCO GRASIM HINDALCO INDUSINDBK APOLLOHOSP BPCL TRENT SBILIFE HDFCLIFE DIVISLAB BRITANNIA BEL HAL IRCTC PNB BANKBARODA VEDL".split(" ");
+const AT=["name","price","changepct","high","low","volume","high52","low52","closeyest"];
+function getSheet_(){
+  const p=PropertiesService.getScriptProperties();
+  let ss=null,id=p.getProperty("sid");
+  if(id){try{ss=SpreadsheetApp.openById(id)}catch(e){}}
+  if(!ss){ss=SpreadsheetApp.create("AmitStocks data");p.setProperty("sid",ss.getId())}
+  return ss.getSheets()[0];
+}
+function refresh_(){
+  const sh=getSheet_(),n=SYM.length;
+  sh.getRange(1,1,1,10).setValues([["Symbol","Name","Price","ChangePct","High","Low","Volume","High52","Low52","PrevClose"]]);
+  sh.getRange(2,1,n,1).setValues(SYM.map(s=>[s]));
+  const body=sh.getRange(2,2,n,9);
+  body.clearContent();SpreadsheetApp.flush();
+  body.setFormulas(SYM.map((s,i)=>AT.map(a=>'=IFERROR(GOOGLEFINANCE("NSE:"&$A'+(i+2)+',"'+a+'"),"")')));
+  let v=[];
+  for(let k=0;k<10;k++){
+    SpreadsheetApp.flush();Utilities.sleep(2000);
+    v=body.getValues();
+    if(!v.some(r=>r.some(c=>c==="Loading..."))) break;
+  }
+  const rows=[];
+  v.forEach((r,i)=>{if(typeof r[1]==="number"&&r[1]>0)rows.push({symbol:SYM[i],name:String(r[0]||SYM[i]),price:r[1],chg:+r[2]||0,high:+r[3]||0,low:+r[4]||0,vol:+r[5]||0,h52:+r[6]||0,l52:+r[7]||0,prev:+r[8]||0})});
+  return {updated:new Date().toISOString(),rows:rows};
+}
+function doGet(){
+  const c=CacheService.getScriptCache();
+  let out=c.get("d");
+  if(!out){out=JSON.stringify(refresh_());c.put("d",out,50)}
+  return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
+}`;
 const $=id=>document.getElementById(id),inr=n=>"₹"+Math.round(n).toLocaleString("en-IN"),f2=n=>(+n||0).toFixed(2);
 let rows=[],sortKey="score",sortDir=-1;
 const get=k=>{try{return localStorage.getItem(k)||""}catch(e){return ""}},set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-const saved=()=>get("amit_csv")||get("amit_px");$("px").value=saved();
-function fix(u){u=(u||"").trim();if(/\/pubhtml/.test(u)||/output=html/.test(u)){const g=u.match(/gid=(\d+)/);u=u.replace(/\/pubhtml.*$/,"/pub").replace(/\?.*$/,"")+"?output=csv"+(g?"&gid="+g[1]:"")}else if(/\/pub\?/.test(u)&&!/output=csv/.test(u))u+="&output=csv";return u}
-const num=v=>{const n=parseFloat(String(v).replace(/[,%₹\s]/g,""));return isNaN(n)?0:n};
-function csv(t){const o=[];let r=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];
-  if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}
-  else if(ch=='"')q=true;else if(ch==","){r.push(c);c=""}
-  else if(ch=="\n"||ch=="\r"){if(ch=="\r"&&t[i+1]=="\n")i++;r.push(c);o.push(r);r=[];c=""}else c+=ch}
-  if(c||r.length){r.push(c);o.push(r)}return o}
+const WEBAPP_URL=""; // optional: hard-code your Web app URL here
+const saved=()=>{const u=get("amit_app");return u};
+$("px").value=saved();
 function score(r){
   let s=0,why=[];const rng=r.high-r.low,pos=rng>0?(r.price-r.low)/rng:.5,p=r.chg,nh=r.nh;
   if(p>0){s+=Math.min(p,4)*9;why.push("up "+f2(p)+"% today")}
@@ -81,11 +113,10 @@ function score(r){
   if(nh<=10){s+=(10-nh)*2.4;why.push(f2(nh)+"% below 52w high")}
   return{score:Math.max(0,Math.min(100,Math.round(s))),why:why.join(", "),hot:p>10};
 }
-function build(t){
+function build(d){
   const mv=(+$("min").value||0)*1e7;
-  return csv(t).slice(1).map(c=>{const r={symbol:(c[0]||"").trim(),name:c[1]||c[0],price:num(c[2]),chg:num(c[3]),high:num(c[4]),low:num(c[5]),vol:num(c[6]),h52:num(c[7]),l52:num(c[8]),prev:num(c[9])};
-    r.nh=r.h52>0?Math.max(0,(r.h52-r.price)/r.h52*100):99;return r})
-   .filter(r=>r.symbol&&r.price>0&&r.high>0&&r.price*r.vol>=mv).map(r=>({...r,...score(r)}));
+  return(d.rows||[]).map(r=>({...r,nh:r.h52>0?Math.max(0,(r.h52-r.price)/r.h52*100):99}))
+   .filter(r=>r.price>0&&r.high>0&&r.price*r.vol>=mv).map(r=>({...r,...score(r)}));
 }
 function plan(r,per){const tg=+$("tg").value/100,sl=+$("sl").value/100,q=Math.floor(per/r.price);
   return{q,cost:q*r.price,tgt:r.price*(1+tg),stp:r.price*(1-sl),win:q*r.price*tg,loss:q*r.price*sl}}
@@ -105,31 +136,26 @@ function render(){
   <div class="box"><small>Reward : risk</small><b>${L?f2(W/L):"–"} : 1</b><small>needs win-rate above ${L?Math.round(L/(W+L)*100):0}%</small></div>`;
   const cols=[["symbol","Stock"],["price","Price"],["chg","Day %"],["nh","From 52w high %"],["vol","Volume"],["score","Score"]];
   $("thead").innerHTML=cols.map(c=>`<th data-k="${c[0]}">${c[1]}${sortKey===c[0]?(sortDir>0?" ▲":" ▼"):""}</th>`).join("");
-  $("tb").innerHTML=[...rows].sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir).map(r=>`<tr><td><b>${r.symbol}</b></td><td>₹${f2(r.price)}</td><td class="${r.chg>=0?"up":"dn"}">${f2(r.chg)}</td><td>${f2(r.nh)}</td><td>${r.vol.toLocaleString("en-IN")}</td><td><b>${r.score}</b></td></tr>`).join("");
+  $("tb").innerHTML=[...rows].sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir).map(r=>`<tr><td><b>${r.symbol}</b></td><td>₹${f2(r.price)}</td><td class="${r.chg>=0?"up":"dn"}">${f2(r.chg)}</td><td>${f2(r.nh)}</td><td>${(+r.vol).toLocaleString("en-IN")}</td><td><b>${r.score}</b></td></tr>`).join("");
   document.querySelectorAll("th").forEach(t=>t.onclick=()=>{const k=t.dataset.k;sortDir=sortKey===k?-sortDir:-1;sortKey=k;render()});
 }
 function open_(){const d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"})),m=d.getHours()*60+d.getMinutes(),w=d.getDay();return w>0&&w<6&&m>=555&&m<=930}
 async function load(){
-  const u=fix(SHEET_URL||saved());
-  if(!u){$("setup").style.display="block";return}
+  const u=WEBAPP_URL||saved();
+  if(!/script\.google\.com\/macros\/s\//.test(u)){$("setup").style.display="block";return}
   try{
-    const r=await fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now());
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const tx=await r.text();if(tx.trim().startsWith("<"))throw new Error("link returned a web page, not data");
-    rows=build(tx);
-    if(!rows.length){$("fix").style.display="block";throw new Error("no prices found in the sheet")}
-    $("fix").style.display="none";
+    const r=await fetch(u),tx=await r.text();
+    let d;try{d=JSON.parse(tx)}catch(e){throw new Error("the Web app isn't set to 'Anyone' access, or the URL is wrong")}
+    rows=build(d);
+    if(!d.rows||!d.rows.length)throw new Error("Google returned no prices yet. Wait a minute and reload");
     $("err").style.display="none";$("setup").style.display="none";
     const o=open_();$("dot").className="dot"+(o?" on":"");
-    $("stat").textContent=(o?"Market open":"Market closed")+" · loaded "+new Date().toLocaleTimeString("en-IN");
+    $("stat").textContent=(o?"Market open":"Market closed")+" · data "+new Date(d.updated).toLocaleTimeString("en-IN");
     render();
-  }catch(e){$("setup").style.display="block";$("err").style.display="block";
-    $("err").textContent="Couldn't load the sheet ("+e.message+"). Check that the sheet is published to the web and that it shows prices in columns A to J.";}
+  }catch(e){$("err").style.display="block";$("err").textContent="Couldn't load data: "+e.message+".";if(!rows.length)$("setup").style.display="block"}
 }
-const SY="RELIANCE TCS HDFCBANK ICICIBANK INFY BHARTIARTL SBIN ITC LT HINDUNILVR KOTAKBANK AXISBANK BAJFINANCE MARUTI SUNPHARMA TITAN NTPC ONGC POWERGRID ULTRACEMCO ASIANPAINT TATAMOTORS TATASTEEL JSWSTEEL ADANIPORTS ADANIENT COALINDIA WIPRO HCLTECH TECHM NESTLEIND BAJAJFINSV CIPLA DRREDDY EICHERMOT HEROMOTOCO GRASIM HINDALCO INDUSINDBK APOLLOHOSP BPCL TRENT SBILIFE HDFCLIFE DIVISLAB BRITANNIA BEL HAL IRCTC PNB BANKBARODA VEDL".split(" "),AT=["name","price","changepct","high","low","volume","high52","low52","closeyest"];
-function tsv(){return["Symbol\tName\tPrice\tChangePct\tHigh\tLow\tVolume\tHigh52\tLow52\tPrevClose"].concat(SY.map((s,i)=>s+"\t"+AT.map(a=>'=IFERROR(GOOGLEFINANCE("NSE:"&$A'+(i+2)+',"'+a+'"),"")').join("\t"))).join("\n")}
-$("copy").onclick=async()=>{const t=tsv();try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}$("cm").textContent="Copied. Now paste into A1 of your sheet."};
-$("save").onclick=()=>{set("amit_csv",$("px").value.trim());load()};
+$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(GS)}catch(e){const a=document.createElement("textarea");a.value=GS;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}$("cm").textContent="Copied. Paste it into the Apps Script editor."};
+$("save").onclick=()=>{set("amit_app",$("px").value.trim());$("stat").textContent="Loading (first load takes ~20 seconds)…";load()};
 ["cap","np","tg","sl"].forEach(i=>$(i).oninput=()=>rows.length&&render());
 $("min").onchange=load;
 load();setInterval(()=>{if(!document.hidden)load()},60000);
